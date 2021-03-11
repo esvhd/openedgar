@@ -2,6 +2,10 @@
 *~
 .idea/
 
+lexpredict_openedgar/scripts/documents
+lexpredict_openedgar/scripts/edgar
+tika/tika-server-1.18.jar
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

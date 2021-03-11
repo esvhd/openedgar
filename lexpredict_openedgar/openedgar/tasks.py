@@ -86,6 +86,9 @@ def create_filing_documents(client, documents, filing, store_raw: bool = True, s
         filing_doc.start_pos = document["start_pos"]
         filing_doc.end_pos = document["end_pos"]
         filing_doc.is_processed = True
+        # esvhd: not sure why we set is_error to true if document is not empty
+        # here.
+        # https://github.com/LexPredict/openedgar/issues/24
         filing_doc.is_error = len(document["content"]) > 0
         document_records.append(filing_doc)
 
@@ -277,6 +280,7 @@ def process_filing_index(client_type: str, file_path: str, filing_index_buffer: 
 
     # Create a filing index record
     edgar_url = "/Archives/{0}".format(file_path).replace("//", "/")
+    logger.info("Create filing index record {}...".format(edgar_url))
     try:
         filing_index = FilingIndex.objects.get(edgar_url=edgar_url)
         filing_index.total_record_count = filing_index_data.shape[0]
@@ -314,7 +318,6 @@ def process_filing(client, file_path: str, filing_buffer: Union[str, bytes] = No
     """
     # Log entry
     logger.info("Processing filing {0}...".format(file_path))
-
 
     # Check for existing record first
     try:
