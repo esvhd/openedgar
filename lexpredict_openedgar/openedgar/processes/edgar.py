@@ -77,9 +77,19 @@ def download_filing_index_data(year: int = None):
         else:
             file_path = os.path.join(path_prefix, filing_index_path)
 
+        # file_path is now: $DOWNLOAD_PATH + edgar/daily=index/...
+
         # Check if exists in database
         try:
-            filing_index = FilingIndex.objects.get(edgar_url=filing_index_path)
+            # esvhd: there seems to be a bug here where the records are inserted
+            # into db with the format of /Archives/DOWNLOAD_PATH/edgar/daily-index/...
+            # but when we check against DB, we are checking
+            # /Archives/edgar/daily-index/...
+
+            fip_target = ("/Archives/" + file_path).replace('//', '/')
+            filing_index = FilingIndex.objects.get(edgar_url=fip_target)
+
+            # filing_index = FilingIndex.objects.get(edgar_url=filing_index_path)
             is_processed = filing_index.is_processed
             logger.info("Index {0} already exists in DB.".format(filing_index_path))
         except FilingIndex.DoesNotExist:
@@ -125,7 +135,7 @@ def process_all_filing_index(year: int = None, form_type_list: Iterable[str] = N
     for s3_path, _, is_processed in file_path_list:
         # Skip if only processing new files and this one is old
         if new_only and not is_processed:
-            logger.info("Processing filing index for {0}...".format(s3_path))
+            logger.info("Processing NEW filing index for {0}...".format(s3_path))
             _ = process_filing_index.delay(client_type, s3_path, form_type_list=form_type_list, store_raw=store_raw,
                                            store_text=store_text)
         elif not new_only:
@@ -194,13 +204,13 @@ def export_filing_document_search(search_query_id: int, output_file_path: str):
     import pandas
 
     # Create query string
-    query_string = """SELECT f.accession_number, f.date_filed, f.company_id, ci.name, ci.sic, ci.state_location, 
+    query_string = """SELECT f.accession_number, f.date_filed, f.company_id, ci.name, ci.sic, ci.state_location,
 f.form_type, fd.sequence, fd.description, fd.sha1, sqt.term, sqr.count
 FROM sec_edgar_searchqueryresult sqr
 JOIN sec_edgar_searchqueryterm sqt ON sqt.id = sqr.term_id
 JOIN sec_edgar_filingdocument fd ON fd.id = sqr.filing_document_id
 JOIN sec_edgar_filing f ON f.id = fd.filing_id
-JOIN sec_edgar_companyinfo ci ON ci.company_id = f.company_id AND ci.date = f.date_filed 
+JOIN sec_edgar_companyinfo ci ON ci.company_id = f.company_id AND ci.date = f.date_filed
 WHERE sqr.search_query_id = {0}
 ORDER BY f.date_filed, f.company_id
 """.format(search_query_id)
